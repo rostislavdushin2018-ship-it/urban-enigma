@@ -1,0 +1,1014 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><title>Шахматная экспедиция</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800;900&display=swap">
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<style>
+/* Раскладка: верхняя панель → табло команд → карта → станция (доска слева, задание справа) */
+:root{--bg:#0c2230;--bg2:#12344a;--panel:#173f58;--panel2:#1d4d6b;--ink:#eef7f4;--muted:#9bbdc9;--gold:#ffc83d;--good:#3ddc97;--bad:#ff5c6c;--sql:#e8f3ec;--sqd:#5b9c8f;--line:rgba(255,255,255,.12);--disp:'Fredoka','Trebuchet MS',system-ui,sans-serif;--body:'Nunito',system-ui,sans-serif;color-scheme:dark}
+html,body{height:auto}
+body{background:radial-gradient(1200px 600px at 85% -10%,#1b5a7d 0,transparent 60%),radial-gradient(900px 500px at -10% 110%,#134a52 0,transparent 55%),var(--bg);color:var(--ink);font-family:var(--body);font-size:18px;font-weight:600;min-height:100vh;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:14px 90px;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+button{font-family:inherit;color:inherit;cursor:pointer;border:0;background:none}
+button:focus-visible,input:focus-visible,.tmain:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+h1,h2{font-family:var(--disp);margin:0}
+.app,.setup,.finish{max-width:1560px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+.confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:50}
+/* верхняя панель */
+.top{display:flex;align-items:center;gap:16px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:10px 16px}
+.brand{display:flex;align-items:center;gap:12px;margin-right:auto;min-width:0}
+.bk{font-size:42px;line-height:1;color:var(--gold)}
+.b1{font-family:var(--disp);font-weight:700;font-size:26px;line-height:1.05}
+.b2{color:var(--muted);font-size:15px}
+.clock{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.ctime{font-family:var(--disp);font-weight:700;font-size:48px;font-variant-numeric:tabular-nums;line-height:1;min-width:6.2ch;text-align:center;background:#0c2230;border-radius:14px;padding:6px 14px}
+.clock.low .ctime{color:var(--bad)}.clock.paused .ctime{opacity:.55}
+.cbtns{display:flex;gap:8px;flex-wrap:wrap}
+.ib{display:inline-flex;align-items:center;gap:8px;min-height:48px;padding:0 16px;border-radius:14px;background:var(--panel2);font-weight:800;font-size:17px;transition:transform .12s,background .15s}
+.ib:hover{background:#27688d}.ib:active{transform:scale(.95)}
+.timeup{background:var(--bad);color:#fff;border-radius:14px;padding:10px 16px;display:flex;gap:14px;align-items:center;flex-wrap:wrap;font-weight:800}
+/* команды */
+.teams{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:12px}
+.team{background:var(--panel);border:3px solid transparent;border-radius:18px;padding:6px 10px;display:flex;align-items:center;gap:8px;transition:border-color .2s,box-shadow .2s,transform .2s}
+.team.act{border-color:var(--tc);box-shadow:0 0 0 4px color-mix(in srgb,var(--tc) 28%,transparent),0 10px 30px -10px var(--tc);transform:translateY(-2px)}
+.tmain{flex:1;min-width:0;display:flex;align-items:center;gap:10px;cursor:pointer;border-radius:12px}
+.em{font-size:38px;line-height:1}
+.tn{flex:1;min-width:0}.nm{font-family:var(--disp);font-weight:600;font-size:21px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.turn{font-size:12px;font-weight:900;letter-spacing:.12em;color:#0c2230;background:var(--tc);display:inline-block;padding:1px 8px;border-radius:8px}
+.turn.off{background:transparent;color:var(--muted);padding-left:0}
+.score{font-family:var(--disp);font-size:42px;font-weight:700;color:var(--tc);font-variant-numeric:tabular-nums;animation:bump .4s}
+.tbtn{display:flex;gap:4px}.tbtn .pm{min-width:54px}
+.pm{min-height:30px;padding:0 6px;border-radius:9px;background:#0c2230;font-weight:900;font-size:15px;line-height:1}
+.pm:hover{background:#06151f}.pm.up{background:color-mix(in srgb,var(--tc) 30%,#0c2230)}
+/* карта */
+.map{position:relative;display:grid;grid-template-columns:repeat(6,1fr);gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:10px 8px}
+.track{position:absolute;left:8%;right:8%;top:34px;border-top:4px dashed rgba(255,255,255,.18)}
+.node{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;padding:2px;border-radius:12px;min-width:0}
+.circ{position:relative;width:52px;height:52px;border-radius:50%;background:#0c2230;border:3px solid var(--line);display:grid;place-items:center;transition:transform .2s,border-color .2s,background .2s}
+.ni{font-size:26px}.node:hover .circ{transform:scale(1.08)}
+.node.cur .circ{border-color:var(--gold);background:#3a3410;animation:pulse 1.8s infinite}
+.node.done .circ{border-color:var(--good);background:#0f3b30}
+.ok{position:absolute;right:-6px;bottom:-4px;width:22px;height:22px;border-radius:50%;background:var(--good);color:#06251c;display:grid;place-items:center}
+.nl{display:flex;flex-direction:column;align-items:center;text-align:center;min-width:0}
+.nn{font-size:15px;font-weight:800;line-height:1.1}.nt{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}.nt.over{color:var(--bad)}
+.node.cur .nn{color:var(--gold)}
+/* станция */
+.stage-wrap{display:flex;flex-direction:column;gap:12px}
+.stbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.stico{font-size:46px}.stt{flex:1;min-width:200px}
+.stn{font-family:var(--disp);font-weight:700;font-size:30px;line-height:1.1}.stb{color:var(--muted);font-size:18px}
+.stdots{display:flex;flex-direction:column;align-items:flex-end;gap:4px}.lbl{font-size:14px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}.lbl.big{font-size:18px}
+.dots{display:flex;gap:6px}.dot{width:16px;height:16px;border-radius:50%;background:#0c2230;border:2px solid var(--line)}.dot.done{background:var(--good);border-color:var(--good)}.dot.cur{border-color:var(--gold);background:var(--gold)}
+.stage{display:grid;grid-template-columns:minmax(300px,max(340px,min(calc(100vh - 390px),740px))) minmax(0,1fr);gap:20px;align-items:start}
+.boardcol{min-width:0}.side{min-width:0}
+@media (max-width:900px){.stage{grid-template-columns:minmax(0,1fr)}.b2,.nn{display:none}.nt{display:none}.circ{width:44px;height:44px}.track{top:30px}.ctime{font-size:38px}}
+/* доска */
+.bw{display:grid;grid-template-columns:2.2em minmax(0,1fr);grid-template-rows:auto 2em;font-family:var(--disp);font-size:clamp(14px,2.4vh,22px);font-weight:600;color:var(--muted)}
+.ranks{display:flex;flex-direction:column}.ranks span{flex:1;display:grid;place-items:center}
+.files{display:grid;grid-template-columns:repeat(8,1fr)}.files span{display:grid;place-items:center}
+.bw.nolab .ranks,.bw.nolab .files{visibility:hidden}
+.board{position:relative;display:grid;grid-template-columns:repeat(8,minmax(0,1fr));grid-template-rows:repeat(8,minmax(0,1fr));aspect-ratio:1;border-radius:12px;overflow:hidden;box-shadow:0 0 0 5px #0a1a25,0 18px 40px -12px rgba(0,0,0,.6)}
+.sq{position:relative;display:block;min-width:0;min-height:0;overflow:hidden;padding:0;border-radius:0;transition:filter .15s}
+.sq.l{background:var(--sql)}.sq.d{background:var(--sqd)}
+.sq:hover{filter:brightness(1.07)}
+.pc{position:absolute;inset:4%;display:block;pointer-events:none}.pc svg{width:100%;height:100%;display:block;filter:drop-shadow(0 2px 1.5px rgba(0,0,0,.35))}
+.pop{animation:pop .3s ease-out}
+.sq.sel::before,.sq.last::before,.sq[class*=m-]::before{content:"";position:absolute;inset:0;pointer-events:none}
+.sq.last::before{background:rgba(255,200,61,.35)}
+.sq.sel::before{background:rgba(255,200,61,.7)}
+.m-ok::before{background:rgba(61,220,151,.75)!important}
+.m-bad::before{background:rgba(255,92,108,.8)!important}
+.m-col::before{background:rgba(255,200,61,.45)!important}
+.m-src::before{background:rgba(120,180,255,.55)!important}
+.m-hint::before{background:rgba(255,200,61,.7)!important;animation:blink .8s infinite}
+.m-check::before{background:radial-gradient(circle,rgba(255,60,80,.95),rgba(255,60,80,.25) 70%)!important}
+.m-checker::before{background:rgba(255,92,108,.55)!important;animation:blink 1s infinite}
+.tg{position:absolute;pointer-events:none}
+.tg.mv{width:30%;height:30%;border-radius:50%;background:rgba(14,40,55,.45)}
+.tg.cap{inset:4%;border-radius:50%;border:6px solid rgba(255,92,108,.85)}
+.arrows{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.shake{animation:shake .5s}
+/* карточки */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:18px 20px;display:flex;flex-direction:column;gap:14px}
+.ttl{font-family:var(--disp);font-weight:700;font-size:30px;line-height:1.15}
+.txt{font-size:21px;line-height:1.4}
+.bigsq{font-family:var(--disp);font-weight:700;font-size:min(22vh,150px);line-height:1;text-align:center;color:var(--gold);background:#0c2230;border-radius:20px;padding:6px 0;letter-spacing:.04em}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:8px;border:3px solid;border-radius:999px;padding:3px 14px 3px 8px;font-weight:800}
+.chip .em{font-size:26px}
+.timer,.cnt{font-family:var(--disp);font-weight:700;font-size:28px;font-variant-numeric:tabular-nums}
+.tip{color:var(--muted);font-size:17px}
+.msg{border-radius:14px;padding:12px 16px;font-size:20px;line-height:1.35;background:#0c2230;border-left:6px solid var(--muted)}
+.msg.good{border-color:var(--good);background:#0e3a2e}.msg.bad{border-color:var(--bad);background:#40202a}
+.act{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.act.center{justify-content:center}
+.pts{font-family:var(--disp);font-weight:700;font-size:34px;color:var(--good);animation:pop .4s}
+.go{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:60px;padding:0 26px;border-radius:16px;background:var(--gold);color:#2b2100;font-family:var(--disp);font-weight:700;font-size:24px;box-shadow:0 5px 0 #b88a00;transition:transform .1s,box-shadow .1s;text-decoration:none}
+.go:active{transform:translateY(4px);box-shadow:0 1px 0 #b88a00}
+.go.alt{background:var(--panel2);color:var(--ink);box-shadow:0 5px 0 #0c2230}
+.bar{height:16px;border-radius:99px;background:#0c2230;overflow:hidden}.barin{height:100%;background:linear-gradient(90deg,var(--good),#9af0c9);border-radius:99px;transition:width .4s}
+.bar.hp .barin{background:linear-gradient(90deg,#ff5c6c,#ff9f43)}
+/* станции 3-6 */
+.vs{display:flex;align-items:center;gap:12px;border:3px solid;border-radius:16px;padding:8px 14px;opacity:.6;transition:opacity .2s,background .2s}
+.vs.on{opacity:1;background:rgba(255,255,255,.08)}
+.vsn{font-family:var(--disp);font-size:23px;font-weight:600;min-width:0}.vsn .s{font-family:var(--body);font-size:15px;color:var(--muted)}
+.colr{font-size:38px;width:44px;text-align:center}.colr.w{color:#fff}.colr.b{color:#7b8ea0}
+.vsx{text-align:center;color:var(--muted);font-weight:900;letter-spacing:.2em;font-size:13px;text-transform:uppercase;margin:-6px 0}
+.rules{font-size:16px;color:var(--muted);line-height:1.5;border-top:1px dashed var(--line);padding-top:10px}.rl{font-weight:900;color:var(--ink)}
+.ways{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.way{display:flex;flex-direction:column;align-items:center;gap:4px;background:var(--panel2);border:3px solid transparent;border-radius:16px;padding:12px 8px;font-weight:800;font-size:18px;text-align:center;transition:transform .12s,border-color .15s}
+.way:hover:not(:disabled){transform:translateY(-2px)}.way.on{border-color:var(--gold);background:#3a3410}.way:disabled{opacity:.6;cursor:default}.wi{font-size:38px}
+.cands{display:flex;flex-direction:column;gap:10px}
+.cand{display:flex;align-items:center;gap:12px;background:var(--panel2);border:3px solid transparent;border-radius:16px;padding:10px 14px;font-weight:800;font-size:21px;text-align:left;transition:border-color .15s,transform .1s}
+.cand.on{border-color:var(--c);background:color-mix(in srgb,var(--c) 22%,#173f58)}.cand.x{opacity:.45;text-decoration:line-through}.cand:disabled{cursor:default}
+.cbadge{display:grid;place-items:center;width:40px;height:40px;border-radius:50%;background:var(--c);color:#0c2230;font-family:var(--disp);font-weight:700;font-size:24px;flex:none}
+.ct{flex:1}.cx{color:var(--bad);font-size:26px}
+.boss{display:flex;align-items:center;gap:14px}.bossem{font-size:64px;line-height:1}.bossem.hit{animation:shake .5s}.bossin{flex:1;display:flex;flex-direction:column;gap:6px}
+.chips{display:flex;gap:8px;flex-wrap:wrap}.pill{background:#0c2230;border-radius:999px;padding:4px 14px;font-weight:800;font-size:16px}.pill.gold{color:var(--gold)}
+.done-card{align-items:center;text-align:center}.trophy{font-size:90px;animation:pop .6s}
+.mini{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}.minit{display:flex;gap:8px;align-items:center;border:3px solid;border-radius:14px;padding:6px 14px;font-weight:800}.minit .em{font-size:28px}.minit b{font-family:var(--disp);font-size:26px;color:var(--gold)}
+/* настройка */
+.setup{gap:22px;align-items:center;padding-top:10px}
+.hero{text-align:center}.hero h1{font-size:clamp(36px,6vw,72px);font-weight:700;line-height:1.05;color:var(--gold)}.kings{font-size:60px;letter-spacing:.2em;color:var(--ink)}.sub{color:var(--muted);font-size:22px;margin-top:6px}.hero.small .kings{font-size:90px;letter-spacing:0;animation:pop .6s}
+.setup .panel{width:100%;max-width:1100px;background:var(--panel);border:1px solid var(--line);border-radius:24px;padding:24px;display:flex;flex-direction:column;gap:18px}
+.ncount{display:flex;gap:12px}.nbtn{width:84px;height:72px;border-radius:18px;background:var(--panel2);font-family:var(--disp);font-weight:700;font-size:38px;border:3px solid transparent}.nbtn.on{border-color:var(--gold);background:#3a3410;color:var(--gold)}
+.teams-setup{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:14px}
+.tset{background:#0c2230;border:3px solid var(--tc);border-radius:18px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.tsetrow{display:flex;align-items:center;gap:10px}.bigem{font-size:52px;line-height:1}
+.tinput{flex:1;min-width:0;background:var(--panel);border:2px solid var(--line);border-radius:12px;padding:10px 12px;color:var(--ink);font-family:var(--disp);font-weight:600;font-size:23px}
+.emojis{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:4px}.emo{font-size:24px;height:44px;min-width:0;padding:0;border-radius:10px;border:2px solid transparent}.emo.on{border-color:var(--tc);background:rgba(255,255,255,.12)}.emo:hover{background:rgba(255,255,255,.1)}
+.start{display:inline-flex;align-items:center;justify-content:center;gap:10px;align-self:center;min-height:72px;padding:0 40px;border-radius:20px;background:var(--gold);color:#2b2100;font-family:var(--disp);font-weight:700;font-size:32px;box-shadow:0 6px 0 #b88a00;transition:transform .1s}.start:active{transform:translateY(5px);box-shadow:0 1px 0 #b88a00}
+.route{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;width:100%;max-width:1100px}
+.rstop{display:flex;flex-direction:column;align-items:center;text-align:center;gap:2px;background:rgba(255,255,255,.05);border-radius:16px;padding:10px}.ri{font-size:34px}.rn{font-weight:800;font-size:16px;line-height:1.15}.rm{color:var(--muted);font-size:14px}
+/* награждение */
+.finish{gap:20px}
+.podium{display:flex;align-items:flex-end;justify-content:center;gap:12px;height:min(50vh,430px);min-height:300px}
+.pcol{flex:1;max-width:260px;height:100%;display:flex;flex-direction:column;justify-content:flex-end;gap:8px}
+.pteam{text-align:center;animation:rise .7s both}.pteam .em{font-size:60px}.pn{font-family:var(--disp);font-weight:600;font-size:22px;line-height:1.1}.ps{color:var(--gold);font-weight:900;font-size:20px}
+.pstep{border-radius:16px 16px 0 0;background:linear-gradient(180deg,var(--tc),color-mix(in srgb,var(--tc) 45%,#0c2230));display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:10px;color:#0c2230;transform-origin:bottom;animation:grow .9s both}
+.pmed{font-size:44px}.pp{font-family:var(--disp);font-weight:700;font-size:54px;line-height:1}
+.certs{background:var(--panel);border:1px solid var(--line);border-radius:22px;padding:18px;display:flex;flex-direction:column;gap:12px;align-items:center}
+.ctabs{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}.ctab{padding:8px 16px;border-radius:12px;background:var(--panel2);font-weight:800;border:3px solid transparent}.ctab.on{border-color:var(--gold)}
+.cert{display:flex;flex-direction:column;align-items:center;gap:10px;width:100%}.cert img{width:min(100%,900px);height:auto;border-radius:12px;box-shadow:0 14px 40px -10px #000}.certload{padding:60px;color:var(--muted)}.certhint{color:var(--muted);font-size:15px;text-align:center}.dl{min-height:48px;font-size:18px;padding:0 20px}
+/* панель тренера */
+.coach{position:fixed;right:max(14px,env(safe-area-inset-right,0px));bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:40;display:flex;flex-direction:column;align-items:flex-end;gap:10px}
+.cfab{width:58px;height:58px;border-radius:50%;background:var(--panel2);border:2px solid var(--line);display:grid;place-items:center;opacity:.55;transition:opacity .2s,transform .15s}.coach.open .cfab,.cfab:hover{opacity:1}.cfab:active{transform:scale(.92)}
+.cpanel{width:min(320px,calc(100vw - 32px));background:#0a1a25;border:1px solid var(--line);border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:8px;box-shadow:0 20px 50px -10px #000;animation:pop .2s}
+.ctitle{font-family:var(--disp);font-weight:700;font-size:20px}
+.cb{display:flex;align-items:center;gap:10px;min-height:50px;padding:0 14px;border-radius:12px;background:var(--panel2);font-weight:800;font-size:17px;text-align:left}.cb:hover{background:#27688d}.cb.hint{background:#3a3410;color:var(--gold)}.cb.warn{background:var(--bad);color:#fff}
+.cb.cb{width:auto}.askrow{display:flex;flex-direction:column;gap:8px;font-size:16px}.askb{display:flex;gap:8px}.askb .cb{flex:1;justify-content:center;padding:0 8px}
+/* анимации */
+@keyframes shake{0%,100%{transform:translateX(0)}15%{transform:translateX(-12px)}30%{transform:translateX(10px)}45%{transform:translateX(-8px)}60%{transform:translateX(6px)}80%{transform:translateX(-3px)}}
+@keyframes pop{0%{transform:scale(.6);opacity:.4}70%{transform:scale(1.1)}100%{transform:scale(1);opacity:1}}
+@keyframes bump{0%{transform:scale(1.5)}100%{transform:scale(1)}}
+@keyframes blink{50%{opacity:.35}}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,200,61,.5)}50%{box-shadow:0 0 0 10px rgba(255,200,61,0)}}
+@keyframes rise{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
+@keyframes grow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+body{overflow-x:hidden}
+@media (max-width:520px){.team{flex-wrap:wrap}.tbtn{width:100%}.tbtn .pm{flex:1}}
+
+</style>
+<div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script>
+/* ===== ШАХМАТНЫЙ ДВИЖОК (без en passant и рокировки) ===== */
+const FILES = 'abcdefgh';
+const sqName = (r, c) => FILES[c] + (8 - r);
+const sqRC = (s) => [8 - parseInt(s[1], 10), FILES.indexOf(s[0])];
+const inB = (r, c) => r >= 0 && r < 8 && c >= 0 && c < 8;
+const other = (c) => (c === 'w' ? 'b' : 'w');
+
+function parseFEN(fen) {
+  const [place, turn] = fen.split(' ');
+  const board = place.split('/').map((row) => {
+    const out = [];
+    for (const ch of row) {
+      if (/\d/.test(ch)) for (let i = 0; i < +ch; i++) out.push(null);
+      else out.push((ch === ch.toUpperCase() ? 'w' : 'b') + ch.toUpperCase());
+    }
+    return out;
+  });
+  return { board, turn: turn || 'w' };
+}
+const cloneB = (b) => b.map((r) => r.slice());
+
+const KN = [[1,2],[2,1],[-1,2],[-2,1],[1,-2],[2,-1],[-1,-2],[-2,-1]];
+const KG = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
+const ROOKD = [[1,0],[-1,0],[0,1],[0,-1]];
+const BISD = [[1,1],[1,-1],[-1,1],[-1,-1]];
+
+/* клетки, которые фигура "бьёт" (атакует), независимо от того, что на них стоит */
+function pieceAttacks(board, r, c) {
+  const p = board[r][c];
+  if (!p) return [];
+  const col = p[0], t = p[1], res = [];
+  const step = (dirs) => dirs.forEach(([dr, dc]) => { const rr = r + dr, cc = c + dc; if (inB(rr, cc)) res.push([rr, cc]); });
+  const slide = (dirs) => dirs.forEach(([dr, dc]) => {
+    let rr = r + dr, cc = c + dc;
+    while (inB(rr, cc)) { res.push([rr, cc]); if (board[rr][cc]) break; rr += dr; cc += dc; }
+  });
+  if (t === 'N') step(KN);
+  else if (t === 'K') step(KG);
+  else if (t === 'R') slide(ROOKD);
+  else if (t === 'B') slide(BISD);
+  else if (t === 'Q') slide(ROOKD.concat(BISD));
+  else if (t === 'P') {
+    const dr = col === 'w' ? -1 : 1;
+    [-1, 1].forEach((dc) => { if (inB(r + dr, c + dc)) res.push([r + dr, c + dc]); });
+  }
+  return res;
+}
+
+function isAttacked(board, r, c, byColor) {
+  for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j++) {
+    const p = board[i][j];
+    if (p && p[0] === byColor && pieceAttacks(board, i, j).some(([a, b]) => a === r && b === c)) return true;
+  }
+  return false;
+}
+function findKing(board, col) {
+  for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j++) if (board[i][j] === col + 'K') return [i, j];
+  return null;
+}
+function inCheck(board, col) {
+  const k = findKing(board, col);
+  return k ? isAttacked(board, k[0], k[1], other(col)) : false;
+}
+function checkers(board, col) {
+  const k = findKing(board, col); const res = [];
+  if (!k) return res;
+  for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j++) {
+    const p = board[i][j];
+    if (p && p[0] === other(col) && pieceAttacks(board, i, j).some(([a, b]) => a === k[0] && b === k[1])) res.push([i, j]);
+  }
+  return res;
+}
+
+function pseudoMoves(board, r, c) {
+  const p = board[r][c];
+  if (!p) return [];
+  const col = p[0], res = [];
+  if (p[1] === 'P') {
+    const dr = col === 'w' ? -1 : 1, start = col === 'w' ? 6 : 1;
+    if (inB(r + dr, c) && !board[r + dr][c]) {
+      res.push([r + dr, c]);
+      if (r === start && !board[r + 2 * dr][c]) res.push([r + 2 * dr, c]);
+    }
+    [-1, 1].forEach((dc) => {
+      const rr = r + dr, cc = c + dc;
+      if (inB(rr, cc) && board[rr][cc] && board[rr][cc][0] !== col) res.push([rr, cc]);
+    });
+    return res;
+  }
+  return pieceAttacks(board, r, c).filter(([a, b]) => !board[a][b] || board[a][b][0] !== col);
+}
+
+function applyMove(board, m) {
+  const nb = cloneB(board);
+  let p = nb[m.from[0]][m.from[1]];
+  nb[m.from[0]][m.from[1]] = null;
+  if (p[1] === 'P' && (m.to[0] === 0 || m.to[0] === 7)) p = p[0] + 'Q';
+  nb[m.to[0]][m.to[1]] = p;
+  return nb;
+}
+function legalMoves(board, col) {
+  const res = [];
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+    const p = board[r][c];
+    if (!p || p[0] !== col) continue;
+    pseudoMoves(board, r, c).forEach(([a, b]) => {
+      const m = { from: [r, c], to: [a, b], piece: p, capture: board[a][b] };
+      m.promo = p[1] === 'P' && (a === 0 || a === 7);
+      if (!inCheck(applyMove(board, m), col)) res.push(m);
+    });
+  }
+  return res;
+}
+const legalFrom = (board, col, r, c) => legalMoves(board, col).filter((m) => m.from[0] === r && m.from[1] === c);
+const isMate = (board, col) => inCheck(board, col) && legalMoves(board, col).length === 0;
+const isStalemate = (board, col) => !inCheck(board, col) && legalMoves(board, col).length === 0;
+
+/* ходы цвета col, дающие мат за n ходов (n=1: мат в 1) */
+function mateMoves(board, col, n) {
+  const res = [];
+  legalMoves(board, col).forEach((m) => {
+    const nb = applyMove(board, m), opp = other(col);
+    const replies = legalMoves(nb, opp);
+    if (n === 1) { if (replies.length === 0 && inCheck(nb, opp)) res.push(m); return; }
+    if (replies.length === 0) return;
+    if (replies.every((rp) => mateMoves(applyMove(nb, rp), col, n - 1).length > 0)) res.push(m);
+  });
+  return res;
+}
+
+const PNAME = { K: 'Король', Q: 'Ферзь', R: 'Ладья', B: 'Слон', N: 'Конь', P: 'Пешка' };
+const moveText = (m) => PNAME[m.piece[1]] + ' ' + sqName(...m.from) + ' → ' + sqName(...m.to);
+const VAL = { P: 1, N: 3, B: 3, R: 5, Q: 9, K: 100 };
+
+/* ===== БАЗА ПОЗИЦИЙ (FEN) ===== */
+const COORD_TASKS = [
+  { sq: 'f6', labels: true }, { sq: 'c3', labels: true }, { sq: 'h5', labels: false },
+  { sq: 'a7', labels: false }, { sq: 'd8', labels: false },
+];
+
+/* Станция 2. type: 'moves' (куда пойдёт фигура с клетки from) | 'attacked' (какие фигуры цвета target под боем фигур цвета by) */
+const HUNT_TASKS = [
+  { fen: '8/8/8/8/4N3/8/8/8 w', type: 'moves', from: 'e4', title: 'Куда может прыгнуть конь?', text: 'Кликни на все клетки, куда может пойти белый конь.' },
+  { fen: '8/8/3P4/8/3R2p1/8/8/8 w', type: 'moves', from: 'd4', title: 'Путь ладьи', text: 'Кликни на все клетки, куда может пойти ладья. Свою пешку рубить нельзя, а чужую — можно!' },
+  { fen: '8/5p2/p7/3n4/2B5/8/8/8 w', type: 'attacked', by: 'w', target: 'b', title: 'Слон на охоте', text: 'Какие чёрные фигуры сейчас под боем белого слона? Помни: слон не прыгает через фигуры.' },
+  { fen: '3r4/8/1p6/8/3Q2n1/8/8/8 w', type: 'attacked', by: 'w', target: 'b', title: 'Ферзь-охотник', text: 'Найди все чёрные фигуры, которые бьёт белый ферзь.' },
+  { fen: '8/8/8/1p1ppp2/2P1P3/8/8/8 w', type: 'attacked', by: 'w', target: 'b', title: 'Пешки бьют по диагонали', text: 'Какие чёрные пешки находятся под боем белых пешек? Подумай, как бьёт пешка.' },
+];
+
+/* Станция 3. Только короли и пешки */
+const PAWN_POS = [
+  { name: 'Три на три', fen: '4k3/ppp5/8/8/8/8/PPP5/4K3 w' },
+  { name: 'Бегущие пешки', fen: '3k4/p1p1p3/8/8/8/8/P1P1P3/3K4 w' },
+  { name: 'Две пешки', fen: '4k3/2p2p2/8/8/8/8/2P2P2/4K3 w' },
+  { name: 'Гонка у края', fen: '5k2/5ppp/8/8/8/8/PPP5/2K5 w' },
+];
+
+/* Станция 4. Защита от шаха */
+const KING_TASKS = [
+  { fen: '4k3/8/8/8/8/8/8/R3K2r w', story: 'Чёрная ладья на h1 напала на нашего короля! Рядом стоит своя ладья, но она тоже не может помочь.' },
+  { fen: '4k3/8/8/b7/8/8/8/3QK3 w', story: 'Слон бьёт короля по длинной диагонали. Ферзь рядом готов прийти на помощь.' },
+  { fen: '4k3/8/8/8/8/8/3q4/3RK3 w', story: 'Чёрный ферзь смело забежал к самому королю. Что с ним делать?' },
+  { fen: '6k1/5ppp/8/8/8/8/1R3PPP/r5K1 w', story: 'Король спрятался за пешками, но ладья напала по первому ряду. Бежать некуда!' },
+  { fen: '7k/8/8/8/8/2n5/1P6/RK6 w', story: 'Чёрный конь прыгнул на c3 и шахует короля. Конь шахует и «перепрыгивает» защиту!' },
+];
+
+/* Станция 5. Хитрые ловушки. moves[i]: from,to; safe: индекс безопасного хода */
+const TRAP_TASKS = [
+  { fen: 'r3k3/p7/8/8/3Q4/8/8/4K3 w', story: 'Белый ферзь видит ничейную с виду пешку на a7. Так хочется её съесть!',
+    moves: [['d4', 'a7'], ['d4', 'd7'], ['d4', 'a4']], safe: 2,
+    why: ['Ладья a8 охраняет пешку и забирает ферзя. Ферзь стоит 9 очков, пешка — 1!', 'Король на e8 стоит рядом и просто забирает ферзя.', 'Ферзь ставит шах слону с безопасной клетки: сюда никто не достанет.'] },
+  { fen: '4k3/8/2p5/3n4/8/3Q4/8/4K3 w', story: 'Конь на d5 стоит без присмотра? Присмотрись внимательнее!',
+    moves: [['d3', 'd5'], ['d3', 'b5'], ['d3', 'g6']], safe: 2,
+    why: ['Пешка c6 охраняет коня и срубит нашего ферзя.', 'Пешка c6 бьёт по диагонали вправо и влево: клетку b5 она тоже охраняет!', 'Шах с g6 безопасен: ферзя там никто не бьёт.'] },
+  { fen: '7k/6r1/8/8/8/8/6Q1/4K3 w', story: 'Белый ферзь смотрит на чёрную ладью. Рубить?',
+    moves: [['g2', 'g7'], ['g2', 'g6'], ['g2', 'a8']], safe: 2,
+    why: ['Ладью охраняет король h8. Он срубит ферзя.', 'Ладья g7 бьёт вниз по вертикали и срубит ферзя на g6.', 'Шах с a8: ладья и король до этой клетки не достают.'] },
+  { fen: '4k3/8/5b2/8/3p4/8/3Q4/4K3 w', story: 'Пешка d4 осталась одна. Может, срубим её ферзём?',
+    moves: [['d2', 'd4'], ['d2', 'g5'], ['d2', 'e2']], safe: 2,
+    why: ['Слон f6 стоит за пешкой и охраняет её. Ферзя потеряем!', 'Слон f6 бьёт клетку g5 по диагонали.', 'Шах по вертикали e с безопасной клетки.'] },
+];
+
+/* Станция 6. Мат в 1 и в 2 */
+const MATE_TASKS = [
+  { fen: '6k1/5ppp/8/8/8/8/8/R3K3 w', n: 1, title: 'Мат на последней линии' },
+  { fen: '7k/8/5K2/8/8/8/8/6Q1 w', n: 1, title: 'Ферзь и король' },
+  { fen: '6rk/6pp/8/6N1/8/8/8/6K1 w', n: 1, title: 'Мат конём «в коробочке»' },
+  { fen: '7k/R7/8/8/8/8/8/1R4K1 w', n: 1, title: 'Две ладьи-лесенка' },
+  { fen: '7k/8/8/8/8/8/R7/1R4K1 w', n: 2, title: 'Лесенка в два хода' },
+  { fen: 'k7/8/2K5/8/8/8/8/7Q w', n: 2, title: 'Загони короля' },
+  { fen: 'r5k1/5ppp/8/8/8/8/4RPPP/4R1K1 w', n: 2, title: 'Жертва ладьи' },
+];
+
+const STATIONS = [
+  { id: 1, name: 'Разведка местности', min: 15, icon: '🧭', blurb: 'Найди клетку по координате как можно быстрее!' },
+  { id: 2, name: 'Охота на фигуры', min: 20, icon: '🏹', blurb: 'Найди, куда ходит фигура и кого она бьёт.' },
+  { id: 3, name: 'Пешечный прорыв', min: 25, icon: '♟️', blurb: 'Команда против команды: проведи пешку в ферзи!' },
+  { id: 4, name: 'Спасение короля', min: 20, icon: '👑', blurb: 'Королю шах! Уйти, закрыться или срубить?' },
+  { id: 5, name: 'Хитрые ловушки', min: 20, icon: '🪤', blurb: 'Заманчивый ход ведёт к потере ферзя. Найди безопасный!' },
+  { id: 6, name: 'Финальный босс', min: 20, icon: '🐉', blurb: 'Мат в 1 и 2 хода. Очки удваиваются!' },
+];
+
+/* ===== ВСПОМОГАТЕЛЬНОЕ: React-шорткаты, иконки, звук, конфетти ===== */
+const { useState, useEffect, useRef, useMemo } = React;
+const h = React.createElement;
+const mk = (tag) => (className, ...k) => {
+  let p = { className };
+  if (k[0] && typeof k[0] === 'object' && !Array.isArray(k[0]) && !React.isValidElement(k[0])) p = Object.assign(p, k.shift());
+  return h(tag, p, ...k);
+};
+const D = mk('div');
+const T = mk('span');
+const Btn = (className, onClick, ...k) => h('button', { className, onClick, type: 'button' }, ...k);
+
+const ICONS = {
+  play: '<polygon points="6 3 20 12 6 21 6 3"/>',
+  pause: '<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>',
+  reset: '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>',
+  plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+  minus: '<path d="M5 12h14"/>',
+  bulb: '<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.3 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/>',
+  eye: '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
+  skip: '<polygon points="5 4 15 12 5 20 5 4"/><line x1="19" x2="19" y1="5" y2="19"/>',
+  cap: '<path d="M22 10 12 5 2 10l10 5 10-5Z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/>',
+  vol: '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a10 10 0 0 1 0 14"/>',
+  mute: '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="22" x2="16" y1="9" y2="15"/><line x1="16" x2="22" y1="9" y2="15"/>',
+  trophy: '<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>',
+  x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  check: '<path d="M20 6 9 17l-5-5"/>',
+  next: '<path d="m9 18 6-6-6-6"/>',
+  rocket: '<path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>',
+  flag: '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/>',
+};
+const Icon = ({ n, s = 22 }) => h('svg', { width: s, height: s, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2.4, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true, dangerouslySetInnerHTML: { __html: ICONS[n] } });
+
+/* ---- звук (Web Audio, без файлов) ---- */
+const Snd = {
+  ctx: null, muted: false,
+  init() { try { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); if (this.ctx.state === 'suspended') this.ctx.resume(); } catch (e) {} },
+  tone(f, d, type, v, t0) {
+    if (this.muted || !this.ctx) return;
+    try {
+      const c = this.ctx, o = c.createOscillator(), g = c.createGain(), t = c.currentTime + (t0 || 0);
+      o.type = type || 'sine'; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v || 0.15, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+      o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + d + 0.05);
+    } catch (e) {}
+  },
+  good() { [660, 880, 1320].forEach((f, i) => this.tone(f, 0.28, 'triangle', 0.18, i * 0.08)); },
+  bad() { this.tone(190, 0.3, 'sawtooth', 0.12, 0); this.tone(140, 0.35, 'sawtooth', 0.1, 0.12); },
+  click() { this.tone(520, 0.07, 'square', 0.05, 0); },
+  alarm() { [0, 0.3, 0.6].forEach((t) => this.tone(880, 0.2, 'square', 0.1, t)); },
+  fanfare() {
+    const seq = [[523, 0, 0.2], [523, 0.22, 0.2], [523, 0.44, 0.2], [659, 0.7, 0.4], [523, 1.15, 0.22], [659, 1.4, 0.22], [784, 1.7, 1.1], [1047, 2.9, 1.4]];
+    seq.forEach(([f, t, d]) => { this.tone(f, d, 'sawtooth', 0.09, t); this.tone(f * 1.5, d, 'square', 0.04, t); this.tone(f / 2, d, 'triangle', 0.1, t); });
+  },
+};
+
+/* ---- конфетти ---- */
+let fire = () => {};
+function Confetti() {
+  const ref = useRef(null);
+  useEffect(() => {
+    const cv = ref.current, cx = cv.getContext('2d');
+    let parts = [], raf = 0, W = 0, H = 0;
+    const size = () => { W = cv.width = window.innerWidth; H = cv.height = window.innerHeight; };
+    size(); window.addEventListener('resize', size);
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const loop = () => {
+      cx.clearRect(0, 0, W, H);
+      parts.forEach((p) => { p.vy += 0.3; p.vx *= 0.99; p.x += p.vx; p.y += p.vy; p.r += p.vr; });
+      parts = parts.filter((p) => p.y < H + 30);
+      parts.forEach((p) => { cx.save(); cx.translate(p.x, p.y); cx.rotate(p.r); cx.fillStyle = p.c; cx.fillRect(-p.s / 2, -p.s / 3, p.s, p.s * 0.6); cx.restore(); });
+      raf = parts.length ? requestAnimationFrame(loop) : 0;
+      if (!parts.length) cx.clearRect(0, 0, W, H);
+    };
+    fire = (n) => {
+      n = reduce ? 20 : (n || 130);
+      for (let i = 0; i < n; i++) {
+        const side = i % 3;
+        parts.push({ x: side === 0 ? W * 0.15 : side === 1 ? W * 0.85 : W / 2, y: H * 0.55, vx: (side === 0 ? 1 : side === 1 ? -1 : 0) * (4 + Math.random() * 6) + (Math.random() - 0.5) * 8, vy: -(9 + Math.random() * 11), s: 8 + Math.random() * 10, r: Math.random() * 6, vr: (Math.random() - 0.5) * 0.4, c: 'hsl(' + Math.floor(Math.random() * 360) + ',90%,60%)' });
+      }
+      if (!raf) raf = requestAnimationFrame(loop);
+    };
+    return () => { window.removeEventListener('resize', size); cancelAnimationFrame(raf); fire = () => {}; };
+  }, []);
+  return h('canvas', { ref, className: 'confetti' });
+}
+
+/* ---- фигуры (SVG) ---- */
+function pieceMarkup(p) {
+  const w = p[0] === 'w', t = p[1];
+  const fill = w ? '#ffffff' : '#2b3642', st = w ? '#14202b' : '#070d13', dt = w ? '#14202b' : '#c9d6df';
+  const S = 'fill="' + fill + '" stroke="' + st + '" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"';
+  const L = 'fill="none" stroke="' + dt + '" stroke-width="1.4" stroke-linecap="round"';
+  const base = '<path ' + S + ' d="M10 40.5h25v-3.5c0-1.5-1-2.5-2.5-2.5h-20c-1.5 0-2.5 1-2.5 2.5z"/>';
+  const parts = {
+    P: '<circle ' + S + ' cx="22.5" cy="12" r="5.5"/><path ' + S + ' d="M16 34.5c0-8 3-11 6.5-14 3.5 3 6.5 6 6.5 14z"/>',
+    R: '<path ' + S + ' d="M12 13V7.5h4.5V10h3V7.5h6V10h3V7.5H33V13l-3 3.5H15z"/><path ' + S + ' d="M15.5 16.5 17 34.5h11l1.5-18z"/><path ' + L + ' d="M15 16.5h15"/>',
+    B: '<path ' + S + ' d="M16.5 34.5c0-6 3.5-8 6-12 2.5 4 6 6 6 12z"/><ellipse ' + S + ' cx="22.5" cy="16.5" rx="5.8" ry="8"/><circle ' + S + ' cx="22.5" cy="6.3" r="2.4"/><path ' + L + ' d="M19.5 20 25.5 12"/>',
+    N: '<path ' + S + ' d="M13 34.5c0-7 1-11 5-15-3-.3-5 1.2-7 4l-2.2-1.8C10 16.5 14 10.5 18 9l1-4.5 4 3c7.5.7 12 6.5 11.8 14.5L34 34.5z"/><circle cx="19.5" cy="13.2" r="1.3" fill="' + dt + '"/><path ' + L + ' d="M10 22.5l3 1.5"/>',
+    Q: '<path ' + S + ' d="M12 34.5 9 17l6.5 9 .5-14.5 5.5 14 1-16.5 1 16.5 5.5-14 .5 14.5 6.5-9-3 17.5z"/><circle ' + S + ' cx="9" cy="15.5" r="2.1"/><circle ' + S + ' cx="16" cy="10.5" r="2.1"/><circle ' + S + ' cx="22.5" cy="7.5" r="2.1"/><circle ' + S + ' cx="29" cy="10.5" r="2.1"/><circle ' + S + ' cx="36" cy="15.5" r="2.1"/><path ' + L + ' d="M14.5 30.5h16"/>',
+    K: '<path ' + S + ' d="M13.5 34.5c-2-9 0-14 9-16.5 9 2.5 11 7.5 9 16.5z"/><rect ' + S + ' x="19.5" y="12" width="6" height="7"/><path ' + S + ' d="M20.5 3h4v3h3v4h-3v3h-4v-3h-3V6h3z"/><path ' + L + ' d="M15 29.5h15"/>',
+  };
+  return base + parts[t];
+}
+
+/* ===== ДОСКА ===== */
+function useShake() {
+  const [s, setS] = useState(false); const tm = useRef(0);
+  const go = () => { setS(false); clearTimeout(tm.current); tm.current = setTimeout(() => { setS(true); tm.current = setTimeout(() => setS(false), 560); }, 20); };
+  return [s, go];
+}
+
+function Arrows({ arrows }) {
+  return h('svg', { className: 'arrows', viewBox: '0 0 8 8' }, arrows.map((a, i) => {
+    const [r1, c1] = sqRC(a.from), [r2, c2] = sqRC(a.to);
+    const x1 = c1 + 0.5, y1 = r1 + 0.5, x2 = c2 + 0.5, y2 = r2 + 0.5;
+    const len = Math.hypot(x2 - x1, y2 - y1), ux = (x2 - x1) / len, uy = (y2 - y1) / len;
+    const tipX = x2 - ux * 0.1, tipY = y2 - uy * 0.1, bx = tipX - ux * 0.42, by = tipY - uy * 0.42, nx = -uy * 0.24, ny = ux * 0.24;
+    const mx = x1 + (x2 - x1) * 0.3, my = y1 + (y2 - y1) * 0.3;
+    return h('g', { key: i, opacity: a.dim ? 0.5 : 0.95 },
+      h('line', { x1: x1 + ux * 0.2, y1: y1 + uy * 0.2, x2: bx, y2: by, stroke: a.color, strokeWidth: a.w || 0.17, strokeLinecap: 'round' }),
+      h('polygon', { points: tipX + ',' + tipY + ' ' + (bx + nx) + ',' + (by + ny) + ' ' + (bx - nx) + ',' + (by - ny), fill: a.color }),
+      a.label && h('circle', { cx: mx, cy: my, r: 0.27, fill: '#0c2230', stroke: a.color, strokeWidth: 0.07 }),
+      a.label && h('text', { x: mx, y: my + 0.12, textAnchor: 'middle', fontSize: 0.36, fontWeight: 800, fill: '#fff', fontFamily: 'Fredoka, sans-serif' }, a.label));
+  }));
+}
+
+function Board({ board, sel, targets, marks, arrows, labels, onSquare, shaking, last }) {
+  targets = targets || {}; marks = marks || {}; labels = labels !== false;
+  const sqs = [];
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+    const s = sqName(r, c), p = board[r][c];
+    const cls = 'sq ' + ((r + c) % 2 === 0 ? 'l' : 'd') + (sel === s ? ' sel' : '') + (marks[s] ? ' m-' + marks[s] : '') + (last && (last[0] === s || last[1] === s) ? ' last' : '');
+    sqs.push(h('button', { key: s, type: 'button', className: cls, onClick: () => onSquare && onSquare(s), 'aria-label': s },
+      p && h('span', { className: 'pc' + (last && last[1] === s ? ' pop' : ''), dangerouslySetInnerHTML: { __html: '<svg viewBox="0 0 45 45">' + pieceMarkup(p) + '</svg>' } }),
+      targets[s] && h('i', { className: 'tg ' + targets[s] })));
+  }
+  return D('bw' + (shaking ? ' shake' : '') + (labels ? '' : ' nolab'),
+    D('ranks', [8, 7, 6, 5, 4, 3, 2, 1].map((n) => h('span', { key: n }, n))),
+    D('board', sqs, arrows && arrows.length ? h(Arrows, { arrows }) : null),
+    D('corner'),
+    D('files', FILES.split('').map((f) => h('span', { key: f }, f))));
+}
+
+/* ===== ОБЩИЕ КУСОЧКИ СТАНЦИЙ ===== */
+const Msg = ({ m }) => D('msg ' + m.k, m.t);
+const TeamChip = ({ team }) => D('chip', { style: { borderColor: team.color } }, T('em', team.emoji), T('', team.name));
+function Frame({ idx, i, total, left, right }) {
+  const st = STATIONS[idx];
+  const dots = [];
+  for (let k = 0; k < total; k++) dots.push(h('span', { key: k, className: 'dot' + (k < i ? ' done' : k === i ? ' cur' : '') }));
+  return D('stage-wrap',
+    D('stbar', T('stico', st.icon),
+      D('stt', D('stn', 'Станция ' + (idx + 1) + ' · ' + st.name), D('stb', st.blurb)),
+      D('stdots', T('lbl', 'Задание ' + Math.min(i + 1, total) + ' из ' + total), D('dots', dots))),
+    D('stage', D('boardcol', left), D('side', right)));
+}
+const ptsText = (p) => (p > 0 ? '+' + p + ' баллов!' : 'Без баллов');
+
+/* ===== СТАНЦИЯ 1: РАЗВЕДКА МЕСТНОСТИ ===== */
+function S1({ ctx, idx, i, total }) {
+  const t = COORD_TASKS[i];
+  const [mist, setMist] = useState(0), [done, setDone] = useState(null), [bad, setBad] = useState(null), [lvl, setLvl] = useState(0);
+  const [t0] = useState(() => Date.now()), [sec, setSec] = useState(0), [shake, go] = useShake();
+  const [msg, setMsg] = useState({ k: 'info', t: 'Найди клетку на доске и нажми на неё. Быстрее — больше баллов!' });
+  useEffect(() => { if (done) return undefined; const id = setInterval(() => setSec((Date.now() - t0) / 1000), 200); return () => clearInterval(id); }, [done]);
+  const team = ctx.teams[ctx.active];
+  function click(s) {
+    if (done) return;
+    if (s === t.sq) {
+      const el = (Date.now() - t0) / 1000, base = Math.max(4, 10 - 2 * mist), bonus = mist === 0 && lvl === 0 && el <= 8 ? 5 : 0;
+      ctx.award(ctx.active, base + bonus); Snd.good(); fire(); setBad(null);
+      setDone({ pts: base + bonus, bonus });
+      setMsg({ k: 'good', t: 'Верно! ' + t.sq + ' найдена за ' + el.toFixed(1) + ' с.' + (bonus ? ' Бонус за скорость +5!' : '') });
+    } else {
+      setMist(mist + 1); setBad(s); Snd.bad(); go(); setLvl(Math.min(2, lvl + 1));
+      setMsg({ k: 'bad', t: 'Ты нажал ' + s + '. Нам нужна ' + t.sq + ': буква «' + t.sq[0] + '» — вертикаль (столбик), цифра «' + t.sq[1] + '» — горизонталь (ряд). Попробуйте ещё раз!' });
+    }
+  }
+  ctx.coach.current = {
+    hint: () => { setLvl(Math.min(2, lvl + 1)); setMsg({ k: 'info', t: 'Подсказка: смотри на подсвеченный столбик' + (lvl >= 1 ? ' и ряд' : '') + '. Клетка находится на их пересечении.' }); },
+    answer: () => { if (!done) { setDone({ pts: 0, revealed: true }); setMsg({ k: 'info', t: 'Правильный ответ: ' + t.sq }); } },
+    skip: () => ctx.advance(),
+  };
+  const marks = {};
+  if (!done && lvl >= 1) for (let r = 0; r < 8; r++) marks[sqName(r, FILES.indexOf(t.sq[0]))] = 'col';
+  if (!done && lvl >= 2) for (let c = 0; c < 8; c++) marks[sqName(8 - +t.sq[1], c)] = 'col';
+  if (bad && !done) marks[bad] = 'bad';
+  if (done) marks[t.sq] = 'ok';
+  const board = useMemo(() => parseFEN('8/8/8/8/8/8/8/8 w').board, []);
+  return h(Frame, { idx, i, total,
+    left: h(Board, { board, marks, labels: t.labels || lvl > 0 || !!done, onSquare: click, shaking: shake }),
+    right: D('card',
+      D('lbl', 'Найди клетку'), D('bigsq', t.sq),
+      D('row', TeamChip({ team }), T('timer', '⏱ ' + (done ? '' : sec.toFixed(1) + ' с'))),
+      !t.labels && !done && lvl === 0 ? D('tip', '🙈 Подписи по краям спрятаны — считай сам!') : null,
+      h(Msg, { m: msg }),
+      done ? D('act', done.pts > 0 ? D('pts', ptsText(done.pts)) : null, Btn('go', ctx.advance, 'Дальше ', h(Icon, { n: 'next' }))) : null) });
+}
+
+/* ===== СТАНЦИЯ 2: ОХОТА НА ФИГУРЫ ===== */
+function huntTargets(t, board) {
+  const out = new Set();
+  if (t.type === 'moves') { const [r, c] = sqRC(t.from); pseudoMoves(board, r, c).forEach(([a, b]) => out.add(sqName(a, b))); }
+  else for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+    const p = board[r][c];
+    if (p && p[0] === t.by) pieceAttacks(board, r, c).forEach(([a, b]) => { if (board[a][b] && board[a][b][0] === t.target) out.add(sqName(a, b)); });
+  }
+  return [...out];
+}
+function S2({ ctx, idx, i, total }) {
+  const t = HUNT_TASKS[i];
+  const board = useMemo(() => parseFEN(t.fen).board, []);
+  const targets = useMemo(() => huntTargets(t, board), []);
+  const [found, setFound] = useState([]), [mist, setMist] = useState(0), [done, setDone] = useState(null), [bad, setBad] = useState(null), [hint, setHint] = useState(null), [shake, go] = useShake();
+  const [msg, setMsg] = useState({ k: 'info', t: t.text });
+  const team = ctx.teams[ctx.active];
+  function click(s) {
+    if (done) return;
+    if (targets.includes(s)) {
+      if (found.includes(s)) return;
+      const nf = found.concat(s); setFound(nf); setHint(null); Snd.good();
+      if (nf.length === targets.length) {
+        const pts = Math.max(6, 20 - 3 * mist); ctx.award(ctx.active, pts); fire(); setDone({ pts });
+        setMsg({ k: 'good', t: 'Все ' + targets.length + ' найдены! Отличная работа команды.' });
+      } else setMsg({ k: 'good', t: 'Есть! Найдено ' + nf.length + ' из ' + targets.length + '. Ищем дальше.' });
+    } else {
+      setMist(mist + 1); setBad(s); Snd.bad(); go(); setTimeout(() => setBad(null), 700);
+      setMsg({ k: 'bad', t: 'Здесь нет. Подумай, как ходит эта фигура, и попробуй ещё раз.' });
+    }
+  }
+  ctx.coach.current = {
+    hint: () => { const rest = targets.filter((x) => !found.includes(x)); if (rest.length) { setHint(rest[0]); setMsg({ k: 'info', t: 'Подсказка: смотри на мигающую клетку.' }); } },
+    answer: () => { if (!done) { setFound(targets); setDone({ pts: 0, revealed: true }); setMsg({ k: 'info', t: 'Вот все правильные клетки: ' + targets.slice().sort().join(', ') }); } },
+    skip: () => ctx.advance(),
+  };
+  const marks = {};
+  if (t.type === 'moves') marks[t.from] = 'src';
+  found.forEach((s) => { marks[s] = 'ok'; });
+  if (hint) marks[hint] = 'hint';
+  if (bad) marks[bad] = 'bad';
+  const tg = {};
+  return h(Frame, { idx, i, total,
+    left: h(Board, { board, marks, targets: tg, onSquare: click, shaking: shake }),
+    right: D('card',
+      D('lbl', 'Задание'), D('ttl', t.title), D('txt', t.text),
+      D('row', TeamChip({ team }), T('cnt', found.length + ' / ' + targets.length)),
+      D('bar', D('barin', { style: { width: (found.length / targets.length) * 100 + '%' } })),
+      h(Msg, { m: msg }),
+      done ? D('act', done.pts > 0 ? D('pts', ptsText(done.pts)) : null, Btn('go', ctx.advance, 'Дальше ', h(Icon, { n: 'next' }))) : null) });
+}
+
+/* ===== СТАНЦИЯ 3: ПЕШЕЧНЫЙ ПРОРЫВ ===== */
+function S3({ ctx, idx, i, total }) {
+  const pair = ctx.pairs[i], pos = PAWN_POS[i % PAWN_POS.length];
+  const [board, setBoard] = useState(() => parseFEN(pos.fen).board);
+  const [turn, setTurn] = useState('w'), [sel, setSel] = useState(null), [result, setResult] = useState(null), [plies, setPlies] = useState(0), [last, setLast] = useState(null), [hint, setHint] = useState(null), [shake, go] = useShake();
+  const [msg, setMsg] = useState({ k: 'info', t: 'Белые начинают. Цель — первой провести пешку в ферзи!' });
+  const legal = useMemo(() => (result ? [] : legalMoves(board, turn)), [board, turn, result]);
+  const teamOf = (c) => ctx.teams[c === 'w' ? pair[0] : pair[1]];
+  useEffect(() => { if (!result) ctx.setActive(turn === 'w' ? pair[0] : pair[1]); }, [turn, result]);
+  function finish(res) {
+    setResult(res); setSel(null); setHint(null);
+    if (res.type === 'draw') { ctx.award(pair[0], 10); ctx.award(pair[1], 10); setMsg({ k: 'info', t: res.why + ' Ничья: обе команды получают по 10 баллов.' }); Snd.click(); }
+    else { const wi = res.winner === 'w' ? pair[0] : pair[1]; ctx.award(wi, 30); setMsg({ k: 'good', t: res.why + ' Победа команды «' + ctx.teams[wi].name + '»: +30 баллов!' }); Snd.good(); fire(180); }
+  }
+  function doMove(m) {
+    const nb = applyMove(board, m), opp = other(turn), np = plies + 1;
+    setBoard(nb); setLast([sqName(...m.from), sqName(...m.to)]); setSel(null); setHint(null); setPlies(np); Snd.click();
+    if (m.promo) return finish({ type: 'win', winner: turn, why: 'Пешка дошла до конца и стала ферзём! 👑' });
+    const rep = legalMoves(nb, opp);
+    if (rep.length === 0) return inCheck(nb, opp) ? finish({ type: 'win', winner: turn, why: 'Мат!' }) : finish({ type: 'draw', why: 'Пат: ходить нечем.' });
+    if (np >= 60) return finish({ type: 'draw', why: 'Слишком долго: 30 ходов у каждой стороны.' });
+    setTurn(opp);
+    setMsg({ k: 'info', t: 'Ход команды «' + teamOf(opp).name + '»' + (inCheck(nb, opp) ? '. Шах королю!' : '.') });
+  }
+  function click(s) {
+    if (result) return;
+    const [r, c] = sqRC(s), p = board[r][c];
+    if (sel) { const m = legal.find((x) => sqName(...x.from) === sel && sqName(...x.to) === s); if (m) return doMove(m); }
+    if (p && p[0] === turn && legal.some((x) => x.from[0] === r && x.from[1] === c)) { setSel(s); setHint(null); return undefined; }
+    if (sel || (p && p[0] === turn)) { go(); Snd.bad(); setMsg({ k: 'bad', t: 'Так ходить нельзя. Пешка идёт вперёд на 1 клетку (с начальной — на 2), а рубит по диагонали.' }); }
+    setSel(null);
+    return undefined;
+  }
+  const best = () => { const pm = legal.filter((m) => m.piece[1] === 'P'); const pool = pm.length ? pm : legal; return pool.slice().sort((a, b) => (turn === 'w' ? a.to[0] - b.to[0] : b.to[0] - a.to[0]))[0]; };
+  ctx.coach.current = {
+    hint: () => { const m = best(); if (m) { setHint(m); setSel(null); setMsg({ k: 'info', t: 'Подсказка: сходить ' + moveText(m) + '.' }); } },
+    answer: () => { if (!result) finish({ type: 'draw', why: 'Тренер завершил партию.' }); },
+    skip: () => ctx.advance(),
+  };
+  const targets = {}, marks = {};
+  if (sel) { const [r, c] = sqRC(sel); legalFrom(board, turn, r, c).forEach((m) => { targets[sqName(...m.to)] = m.capture ? 'cap' : 'mv'; }); }
+  if (hint) { marks[sqName(...hint.from)] = 'hint'; marks[sqName(...hint.to)] = 'hint'; }
+  [['w'], ['b']].forEach(([c]) => { if (!result && inCheck(board, c)) { const k = findKing(board, c); marks[sqName(...k)] = 'check'; } });
+  const side = (c) => { const tm = teamOf(c); return D('vs' + (!result && turn === c ? ' on' : ''), { style: { borderColor: tm.color } }, T('colr ' + c, c === 'w' ? '♙' : '♟'), T('em', tm.emoji), D('vsn', D('', tm.name), D('s', c === 'w' ? 'играет белыми' : 'играет чёрными'))); };
+  return h(Frame, { idx, i, total,
+    left: h(Board, { board, sel, targets, marks, last, onSquare: click, shaking: shake }),
+    right: D('card',
+      D('lbl', 'Партия ' + (i + 1) + ' · ' + pos.name), side('w'), D('vsx', 'против'), side('b'),
+      h(Msg, { m: msg }),
+      D('rules', D('rl', '📜 Правила'), D('', '• Пешка идёт вперёд на 1 клетку (с начальной — на 2).'), D('', '• Рубит по диагонали вперёд.'), D('', '• Королём ходим на 1 клетку, но не под бой.'), D('', '• Победа: пешка дошла до края (стала ферзём) или мат.')),
+      result ? D('act', Btn('go', ctx.advance, i + 1 >= total ? 'К итогам станции ' : 'Следующая партия ', h(Icon, { n: 'next' }))) : null) });
+}
+
+/* ===== СТАНЦИЯ 4: СПАСЕНИЕ КОРОЛЯ ===== */
+const WAYS = {
+  run: { ico: '🏃', name: 'Уйти королём', no: 'Королю некуда уйти: все соседние клетки под боем или заняты.' },
+  block: { ico: '🛡️', name: 'Закрыться', no: 'Закрыться не получится: между шахующей фигурой и королём нельзя поставить свою фигуру.' },
+  capture: { ico: '⚔️', name: 'Срубить шахующую', no: 'Срубить шахующую фигуру нечем.' },
+};
+function S4({ ctx, idx, i, total }) {
+  const t = KING_TASKS[i];
+  const [board, setBoard] = useState(() => parseFEN(t.fen).board);
+  const init = useMemo(() => parseFEN(t.fen).board, []);
+  const chk = useMemo(() => checkers(init, 'w'), []);
+  const legal = useMemo(() => legalMoves(init, 'w'), []);
+  const kindOf = (m) => (chk.some(([a, b]) => a === m.to[0] && b === m.to[1]) ? 'capture' : m.piece[1] === 'K' ? 'run' : 'block');
+  const types = useMemo(() => new Set(legal.map(kindOf)), []);
+  const [mode, setMode] = useState(null), [sel, setSel] = useState(null), [mist, setMist] = useState(0), [done, setDone] = useState(null), [last, setLast] = useState(null), [hint, setHint] = useState(null), [arrow, setArrow] = useState(null), [shake, go] = useShake();
+  const [msg, setMsg] = useState({ k: 'info', t: 'Королю шах! Сначала выберите способ спасения, потом сделайте этот ход на доске.' });
+  const team = ctx.teams[ctx.active];
+  const chosen = (m) => legal.filter((x) => kindOf(x) === m);
+  function pick(w) {
+    if (done) return;
+    Snd.click();
+    if (!types.has(w)) { setMist(mist + 1); Snd.bad(); go(); setMsg({ k: 'bad', t: WAYS[w].no + ' Выберите другой способ.' }); return; }
+    setMode(w); setSel(null); setHint(null);
+    setMsg({ k: 'info', t: 'Выбран способ «' + WAYS[w].name + '». Теперь сделайте этот ход на доске: нажмите на фигуру, затем на клетку.' });
+  }
+  function finishWith(m) {
+    const nb = applyMove(board, m); setBoard(nb); setLast([sqName(...m.from), sqName(...m.to)]); setSel(null); setHint(null); setArrow(null);
+    const pts = Math.max(8, 20 - 4 * mist); ctx.award(ctx.active, pts); Snd.good(); fire(); setDone({ pts });
+    const others = [...types].filter((x) => x !== mode).map((x) => WAYS[x].name);
+    setMsg({ k: 'good', t: 'Король спасён! ' + (others.length ? 'Был и другой способ: ' + others.join(', ') + '.' : 'Это был единственный способ.') });
+  }
+  function click(s) {
+    if (done) return;
+    if (!mode) { go(); Snd.bad(); setMsg({ k: 'bad', t: 'Сначала выберите способ спасения кнопкой справа.' }); return; }
+    const [r, c] = sqRC(s), mv = chosen(mode);
+    if (sel) { const m = mv.find((x) => sqName(...x.from) === sel && sqName(...x.to) === s); if (m) return finishWith(m); }
+    if (mv.some((x) => x.from[0] === r && x.from[1] === c)) { setSel(s); setHint(null); return undefined; }
+    const p = board[r][c];
+    setMist(mist + 1); Snd.bad(); go(); setSel(null);
+    if (p && p[0] === 'w') setMsg({ k: 'bad', t: 'Эта фигура не может спасти короля способом «' + WAYS[mode].name + '». Подумайте ещё.' });
+    else setMsg({ k: 'bad', t: 'Так король не спасётся (или это другой способ). Нужен ход способом «' + WAYS[mode].name + '».' });
+    return undefined;
+  }
+  ctx.coach.current = {
+    hint: () => { const pool = mode ? chosen(mode) : legal; const m = pool[0]; if (!mode) { const w = [...types][0]; setMsg({ k: 'info', t: 'Подсказка: подойдёт способ «' + WAYS[w].name + '».' }); } else { setHint(sqName(...m.from)); setMsg({ k: 'info', t: 'Подсказка: ходить нужно фигурой с мигающей клетки.' }); } },
+    answer: () => { if (done) return; const m = (mode ? chosen(mode) : legal)[0]; setArrow({ from: sqName(...m.from), to: sqName(...m.to), color: '#3ddc97' }); setDone({ pts: 0, revealed: true }); setMsg({ k: 'info', t: 'Ответ: ' + moveText(m) + ' (способ «' + WAYS[kindOf(m)].name + '»).' }); },
+    skip: () => ctx.advance(),
+  };
+  const targets = {}, marks = {};
+  if (sel && mode && !done) { const [r, c] = sqRC(sel); chosen(mode).filter((m) => m.from[0] === r && m.from[1] === c).forEach((m) => { targets[sqName(...m.to)] = m.capture ? 'cap' : 'mv'; }); }
+  if (!done) { const k = findKing(board, 'w'); marks[sqName(...k)] = 'check'; chk.forEach(([a, b]) => { marks[sqName(a, b)] = 'checker'; }); }
+  if (hint) marks[hint] = 'hint';
+  return h(Frame, { idx, i, total,
+    left: h(Board, { board, sel, targets, marks, last, arrows: arrow ? [arrow] : [], onSquare: click, shaking: shake }),
+    right: D('card',
+      D('lbl', 'Сюжет'), D('txt', t.story), D('row', TeamChip({ team })),
+      D('lbl', 'Как спасти короля?'),
+      D('ways', Object.keys(WAYS).map((w) => h('button', { key: w, type: 'button', disabled: !!done, className: 'way' + (mode === w ? ' on' : ''), onClick: () => pick(w) }, T('wi', WAYS[w].ico), T('wn', WAYS[w].name)))),
+      h(Msg, { m: msg }),
+      done ? D('act', done.pts > 0 ? D('pts', ptsText(done.pts)) : null, Btn('go', ctx.advance, 'Дальше ', h(Icon, { n: 'next' }))) : null) });
+}
+
+/* ===== СТАНЦИЯ 5: ХИТРЫЕ ЛОВУШКИ ===== */
+const CAND = ['#ff9f43', '#b388ff', '#3ddc97'];
+function S5({ ctx, idx, i, total }) {
+  const t = TRAP_TASKS[i];
+  const init = useMemo(() => parseFEN(t.fen).board, []);
+  const [board, setBoard] = useState(init);
+  const [pick, setPick] = useState(null), [tried, setTried] = useState([]), [res, setRes] = useState(null), [done, setDone] = useState(null), [last, setLast] = useState(null), [mist, setMist] = useState(0), [shake, go] = useShake(), [reveal, setReveal] = useState(false);
+  const [msg, setMsg] = useState({ k: 'info', t: 'Обсудите в команде, какой ход безопасный. Нажмите на карточку, а потом «Ходим!».' });
+  const team = ctx.teams[ctx.active];
+  const mv = t.moves.map((m) => legalMoves(init, 'w').find((x) => sqName(...x.from) === m[0] && sqName(...x.to) === m[1]));
+  function confirm() {
+    if (pick === null || done || res) return;
+    const m = mv[pick], nb = applyMove(init, m); setBoard(nb); setLast([sqName(...m.from), sqName(...m.to)]); Snd.click();
+    if (pick === t.safe) {
+      const pts = Math.max(8, 20 - 5 * mist); ctx.award(ctx.active, pts); Snd.good(); fire(); setDone({ pts }); setRes('ok');
+      setMsg({ k: 'good', t: 'Безопасный ход! ' + t.why[pick] });
+    } else {
+      setRes('bad'); setMist(mist + 1); setTried(tried.concat(pick));
+      const reps = legalMoves(nb, 'b').filter((x) => x.to[0] === m.to[0] && x.to[1] === m.to[1]).sort((a, b) => VAL[a.piece[1]] - VAL[b.piece[1]]);
+      setMsg({ k: 'bad', t: 'Ловушка! ' + t.why[pick] });
+      setTimeout(() => { if (reps[0]) { setBoard(applyMove(nb, reps[0])); setLast([sqName(...reps[0].from), sqName(...reps[0].to)]); } Snd.bad(); go(); }, 900);
+    }
+  }
+  function undo() { setBoard(init); setLast(null); setRes(null); setPick(null); setMsg({ k: 'info', t: 'Ход возвращён. Подумайте ещё и выберите другой вариант.' }); }
+  ctx.coach.current = {
+    hint: () => { const left = [0, 1, 2].filter((x) => x !== t.safe && !tried.includes(x)); const x = left[0]; if (x !== undefined) { setTried(tried.concat(x)); setMsg({ k: 'info', t: 'Подсказка: вариант ' + 'ABC'[x] + ' точно не подходит. ' + t.why[x] }); } else setMsg({ k: 'info', t: 'Остался один вариант: ' + 'ABC'[t.safe] + '.' }); },
+    answer: () => { if (!done) { setReveal(true); setPick(t.safe); setDone({ pts: 0, revealed: true }); setMsg({ k: 'info', t: 'Правильный ответ: вариант ' + 'ABC'[t.safe] + '. ' + t.why[t.safe] }); } },
+    skip: () => ctx.advance(),
+  };
+  const arrows = t.moves.map((m, k) => ({ from: m[0], to: m[1], color: CAND[k], label: 'ABC'[k], w: pick === k ? 0.24 : 0.13, dim: !res && pick !== null && pick !== k })).filter((a, k) => !res || k === pick || reveal);
+  const marks = {}; [...t.moves.map((m) => m[1])].forEach(() => {});
+  const ready = pick !== null && !res && !done;
+  return h(Frame, { idx, i, total,
+    left: h(Board, { board, marks, last, arrows: res ? [] : arrows, onSquare: () => {}, shaking: shake }),
+    right: D('card',
+      D('lbl', 'Ситуация'), D('txt', t.story), D('row', TeamChip({ team })),
+      D('lbl', 'Какой ход безопасный?'),
+      D('cands', mv.map((m, k) => h('button', { key: k, type: 'button', disabled: !!res || !!done || tried.includes(k), className: 'cand' + (pick === k ? ' on' : '') + (tried.includes(k) ? ' x' : ''), style: { '--c': CAND[k] }, onClick: () => { setPick(k); Snd.click(); } }, T('cbadge', 'ABC'[k]), T('ct', moveText(m)), tried.includes(k) ? T('cx', '✗') : null))),
+      ready ? Btn('go', confirm, 'Ходим! ', h(Icon, { n: 'rocket' })) : null,
+      res === 'bad' ? Btn('go alt', undo, 'Вернуть ход и подумать ещё') : null,
+      h(Msg, { m: msg }),
+      done ? D('act', done.pts > 0 ? D('pts', ptsText(done.pts)) : null, Btn('go', ctx.advance, 'Дальше ', h(Icon, { n: 'next' }))) : null) });
+}
+
+/* ===== СТАНЦИЯ 6: ФИНАЛЬНЫЙ БОСС ===== */
+function S6({ ctx, idx, i, total }) {
+  const t = MATE_TASKS[i];
+  const [board, setBoard] = useState(() => parseFEN(t.fen).board);
+  const [stage, setStage] = useState(0), [sel, setSel] = useState(null), [mist, setMist] = useState(0), [done, setDone] = useState(null), [last, setLast] = useState(null), [hint, setHint] = useState(null), [arrow, setArrow] = useState(null), [wait, setWait] = useState(false), [shake, go] = useShake();
+  const need = t.n - stage;
+  const [msg, setMsg] = useState({ k: 'info', t: t.n === 1 ? 'Белые ходят и ставят мат в один ход!' : 'Белые ходят и ставят мат в два хода. Найди первый ход!' });
+  const legal = useMemo(() => (done || wait ? [] : legalMoves(board, 'w')), [board, done, wait]);
+  const team = ctx.teams[ctx.active];
+  const base = t.n === 1 ? 20 : 30;
+  function click(s) {
+    if (done || wait) return;
+    const [r, c] = sqRC(s);
+    if (sel) {
+      const m = legal.find((x) => sqName(...x.from) === sel && sqName(...x.to) === s);
+      if (m) {
+        const good = mateMoves(board, 'w', need).some((x) => x.from[0] === m.from[0] && x.from[1] === m.from[1] && x.to[0] === m.to[0] && x.to[1] === m.to[1]);
+        if (!good) { setMist(mist + 1); Snd.bad(); go(); setSel(null); setMsg({ k: 'bad', t: need === 1 ? 'Это не мат: король ещё может спастись. Ищите дальше!' : 'Это не принудительный мат в два хода. Ищите ход, после которого чёрным не уйти.' }); return undefined; }
+        const nb = applyMove(board, m); setBoard(nb); setLast([sqName(...m.from), sqName(...m.to)]); setSel(null); setHint(null);
+        if (need === 1) { const pts = Math.max(Math.round(base * 0.4), base - 4 * mist); ctx.award(ctx.active, pts); Snd.good(); fire(200); setDone({ pts }); setMsg({ k: 'good', t: 'МАТ! Босс получил удар! 💥' }); }
+        else {
+          Snd.good(); setWait(true); setMsg({ k: 'info', t: 'Хороший ход! Чёрные отвечают…' });
+          setTimeout(() => { const rp = legalMoves(nb, 'b')[0]; const b2 = applyMove(nb, rp); setBoard(b2); setLast([sqName(...rp.from), sqName(...rp.to)]); setStage(1); setWait(false); Snd.click(); setMsg({ k: 'info', t: 'Чёрные сходили. Теперь поставьте мат!' }); }, 900);
+        }
+        return undefined;
+      }
+    }
+    if (legal.some((x) => x.from[0] === r && x.from[1] === c)) { setSel(s); setHint(null); return undefined; }
+    if (sel) { go(); Snd.bad(); }
+    setSel(null);
+    return undefined;
+  }
+  ctx.coach.current = {
+    hint: () => { const m = mateMoves(board, 'w', need)[0]; if (m) { setHint(sqName(...m.from)); setMsg({ k: 'info', t: 'Подсказка: ходить нужно фигурой с мигающей клетки.' }); } },
+    answer: () => { if (done) return; const m = mateMoves(board, 'w', need)[0]; if (m) { setArrow({ from: sqName(...m.from), to: sqName(...m.to), color: '#3ddc97' }); setDone({ pts: 0, revealed: true }); setMsg({ k: 'info', t: 'Ответ: ' + moveText(m) + (t.n === 2 && need === 2 ? ' (дальше будет мат).' : '.') }); } },
+    skip: () => ctx.advance(),
+  };
+  const targets = {}, marks = {};
+  if (sel) { const [r, c] = sqRC(sel); legalFrom(board, 'w', r, c).forEach((m) => { targets[sqName(...m.to)] = m.capture ? 'cap' : 'mv'; }); }
+  if (hint) marks[hint] = 'hint';
+  if (!done && inCheck(board, 'b')) marks[sqName(...findKing(board, 'b'))] = 'check';
+  if (done && !arrow) marks[sqName(...findKing(board, 'b'))] = 'check';
+  const hp = Math.max(0, total - i - (done ? 1 : 0));
+  return h(Frame, { idx, i, total,
+    left: h(Board, { board, sel, targets, marks, last, arrows: arrow ? [arrow] : [], onSquare: click, shaking: shake }),
+    right: D('card',
+      D('boss', T('bossem' + (done ? ' hit' : ''), '🐉'), D('bossin', D('lbl', 'Босс · очки ×2'), D('bar hp', D('barin', { style: { width: (hp / total) * 100 + '%' } })))),
+      D('ttl', t.title), D('chips', T('pill', t.n === 1 ? 'Мат в 1 ход' : 'Мат в 2 хода'), T('pill gold', 'до ' + base + ' баллов')),
+      D('row', TeamChip({ team }), t.n === 2 ? T('cnt', 'Ход ' + (stage + 1) + ' из 2') : null),
+      h(Msg, { m: msg }),
+      done ? D('act', done.pts > 0 ? D('pts', ptsText(done.pts)) : null, Btn('go', ctx.advance, i + 1 >= total ? 'К награждению ' : 'Дальше ', h(Icon, { n: i + 1 >= total ? 'trophy' : 'next' }))) : null) });
+}
+
+/* ===== ПРИЛОЖЕНИЕ ===== */
+const DEFAULTS = [{ name: 'Белые тигры', emoji: '🐯' }, { name: 'Черные пантеры', emoji: '🐆' }, { name: 'Золотые слоны', emoji: '🐘' }, { name: 'Огненные ладьи', emoji: '🔥' }];
+const COLORS = ['#38bdf8', '#f472b6', '#facc15', '#fb923c'];
+const EMOJIS = ['🐯', '🐆', '🐘', '🔥', '🦁', '🐉', '🦅', '🐬', '🦊', '🐼', '🚀', '⭐', '🦄', '🐺', '🐙', '⚡'];
+const fmt = (s) => { const hh = Math.floor(s / 3600), mm = Math.floor((s % 3600) / 60), ss = s % 60; return hh + ':' + String(mm).padStart(2, '0') + ':' + String(ss).padStart(2, '0'); };
+const mmss = (s) => Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+
+/* ---- экран настройки ---- */
+function Setup({ onStart }) {
+  const [n, setN] = useState(3);
+  const [tm, setTm] = useState(DEFAULTS.map((d) => ({ ...d })));
+  const upd = (k, patch) => setTm(tm.map((t, j) => (j === k ? { ...t, ...patch } : t)));
+  return D('setup',
+    D('hero', D('kings', '♞ ♜ ♝'), h('h1', null, 'Шахматная экспедиция'), D('sub', 'Командный турнир · 2 часа · 6 станций')),
+    D('panel',
+      D('lbl big', 'Сколько команд?'),
+      D('ncount', [2, 3, 4].map((k) => Btn('nbtn' + (n === k ? ' on' : ''), () => { Snd.click(); setN(k); }, String(k)))),
+      D('teams-setup', tm.slice(0, n).map((t, k) => D('tset', { key: k, style: { '--tc': COLORS[k] } },
+        D('tsetrow', T('bigem', t.emoji), h('input', { id: 'team-' + k, className: 'tinput', value: t.name, maxLength: 24, 'aria-label': 'Название команды ' + (k + 1), onChange: (e) => upd(k, { name: e.target.value }) })),
+        D('emojis', EMOJIS.map((em) => h('button', { key: em, type: 'button', className: 'emo' + (t.emoji === em ? ' on' : ''), onClick: () => { Snd.click(); upd(k, { emoji: em }); } }, em)))))),
+      Btn('start', () => { Snd.init(); Snd.good(); onStart(tm.slice(0, n).map((t, k) => ({ name: t.name.trim() || 'Команда ' + (k + 1), emoji: t.emoji, color: COLORS[k], score: 0 }))); }, h(Icon, { n: 'rocket', s: 30 }), ' Начать экспедицию')),
+    D('route', STATIONS.map((s, k) => D('rstop', { key: k }, T('ri', s.icon), T('rn', s.name), T('rm', s.min + ' мин')))));
+}
+
+/* ---- табло команд ---- */
+function Teams({ teams, active, setActive, award }) {
+  return D('teams', teams.map((t, k) => D('team' + (k === active ? ' act' : ''), { key: k, style: { '--tc': t.color } },
+    D('tmain', { onClick: () => setActive(k), role: 'button', tabIndex: 0, onKeyDown: (e) => { if (e.key === 'Enter') setActive(k); } },
+      T('em', t.emoji), D('tn', D('nm', t.name), k === active ? D('turn', 'ОТВЕЧАЕТ') : D('turn off', 'ждёт')), h('b', { key: t.score, className: 'score' }, t.score)),
+    D('tbtn', Btn('pm', () => award(k, -5), '−5'), Btn('pm', () => award(k, 1), '+1'), Btn('pm up', () => award(k, 5), '+5')))));
+}
+
+/* ---- карта этапов ---- */
+function MapBar({ st, setSt, prog, counts, stSecs }) {
+  return D('map', D('track'), STATIONS.map((s, k) => {
+    const done = prog[k] >= counts[k], cur = k === st, over = stSecs[k] > s.min * 60;
+    return h('button', { key: k, type: 'button', className: 'node' + (done ? ' done' : '') + (cur ? ' cur' : ''), onClick: () => setSt(k) },
+      D('circ', T('ni', s.icon), done ? T('ok', h(Icon, { n: 'check', s: 14 })) : null),
+      D('nl', T('nn', (k + 1) + '. ' + s.name), T('nt' + (over ? ' over' : ''), cur || stSecs[k] ? mmss(stSecs[k]) + ' / ' + s.min + ':00' : s.min + ' мин')));
+  }));
+}
+
+/* ---- конец станции ---- */
+function StationDone({ st, teams, onNext, onRepeat }) {
+  const last = st === 5;
+  return D('card done-card', D('trophy', '🏆'), h('h2', null, 'Станция пройдена!'), D('txt', STATIONS[st].icon + ' ' + STATIONS[st].name),
+    D('mini', teams.map((t, k) => D('minit', { key: k, style: { borderColor: t.color } }, T('em', t.emoji), T('', t.name), h('b', null, t.score)))),
+    D('act', Btn('go', onNext, last ? 'К награждению ' : 'К станции ' + (st + 2) + ' ', h(Icon, { n: last ? 'trophy' : 'next' })), Btn('go alt', onRepeat, 'Сыграть ещё раз')));
+}
+
+/* ---- сертификат ---- */
+function makeCert(team, place, n, date) {
+  const W = 1600, H = 1130, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const x = cv.getContext('2d'); x.textAlign = 'center';
+  const g = x.createLinearGradient(0, 0, W, H); g.addColorStop(0, '#0c2230'); g.addColorStop(1, '#17517a'); x.fillStyle = g; x.fillRect(0, 0, W, H);
+  for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) { // шахматные уголки
+    if ((r + c) % 2) continue; x.fillStyle = 'rgba(255,200,61,.22)'; const s = 34;
+    [[84, 84], [W - 84 - 4 * s, 84], [84, H - 84 - 4 * s], [W - 84 - 4 * s, H - 84 - 4 * s]].forEach(([ox, oy]) => x.fillRect(ox + c * s, oy + r * s, s, s));
+  }
+  x.strokeStyle = '#ffc83d'; x.lineWidth = 10; x.strokeRect(36, 36, W - 72, H - 72); x.lineWidth = 3; x.strokeRect(60, 60, W - 120, H - 120);
+  x.fillStyle = '#ffc83d'; x.font = '700 120px Fredoka, "Trebuchet MS", sans-serif'; x.fillText('СЕРТИФИКАТ', W / 2, 250);
+  x.fillStyle = '#eef7f4'; x.font = '600 46px Nunito, sans-serif'; x.fillText('Шахматная экспедиция · командный турнир', W / 2, 322);
+  x.fillStyle = '#9bbdc9'; x.font = '600 38px Nunito, sans-serif'; x.fillText('с гордостью награждается команда', W / 2, 410);
+  x.beginPath(); x.arc(W / 2, 560, 110, 0, Math.PI * 2); x.fillStyle = team.color; x.fill();
+  x.font = '140px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif'; x.textBaseline = 'middle'; x.fillStyle = '#fff'; x.fillText(team.emoji, W / 2, 566); x.textBaseline = 'alphabetic';
+  let fs = 108; x.font = '700 ' + fs + 'px Fredoka, "Trebuchet MS", sans-serif';
+  while (x.measureText(team.name).width > 1240 && fs > 40) { fs -= 4; x.font = '700 ' + fs + 'px Fredoka, "Trebuchet MS", sans-serif'; }
+  x.fillStyle = '#ffffff'; x.fillText(team.name, W / 2, 780);
+  const titles = ['Чемпионы экспедиции', 'Серебряные следопыты', 'Бронзовые исследователи', 'Отважные путешественники'];
+  x.fillStyle = '#ffc83d'; x.font = '700 62px Fredoka, "Trebuchet MS", sans-serif'; x.fillText((['🥇', '🥈', '🥉'][place - 1] || '🏅') + ' ' + place + ' место · ' + titles[Math.min(place, 4) - 1], W / 2, 880);
+  x.fillStyle = '#eef7f4'; x.font = '600 44px Nunito, sans-serif'; x.fillText('Набрано очков: ' + team.score + ' · Станций пройдено: 6', W / 2, 950);
+  x.strokeStyle = '#9bbdc9'; x.lineWidth = 2; x.beginPath(); x.moveTo(190, 1030); x.lineTo(560, 1030); x.moveTo(W - 560, 1030); x.lineTo(W - 190, 1030); x.stroke();
+  x.fillStyle = '#9bbdc9'; x.font = '600 30px Nunito, sans-serif'; x.fillText('Тренер', 375, 1068); x.fillText(date, W - 375, 1068);
+  x.font = '60px serif'; x.fillStyle = '#ffc83d'; x.fillText('♞', W / 2, 1060);
+  return cv.toDataURL('image/png');
+}
+function Cert({ team, place, n }) {
+  const [src, setSrc] = useState('');
+  const date = new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+  useEffect(() => {
+    let dead = false; const draw = () => { if (!dead) setSrc(makeCert(team, place, n, date)); };
+    const f = document.fonts && document.fonts.load ? Promise.all([document.fonts.load('700 100px Fredoka'), document.fonts.load('600 40px Nunito')]) : Promise.resolve();
+    f.then(draw, draw); return () => { dead = true; };
+  }, [team.name, team.emoji, team.score, place]);
+  return D('cert', src ? h('img', { src, alt: 'Сертификат команды ' + team.name }) : D('certload', 'Рисую сертификат…'),
+    D('certhint', 'Чтобы сохранить: нажмите на картинку правой кнопкой (или зажмите пальцем) → «Сохранить изображение».'),
+    src ? h('a', { className: 'go alt dl', href: src, download: 'сертификат-' + team.name + '.png' }, 'Скачать PNG') : null);
+}
+
+/* ---- награждение ---- */
+function Finish({ teams, onAgain, onBack }) {
+  const sorted = teams.map((t, k) => ({ ...t, k })).sort((a, b) => b.score - a.score);
+  let p = 0, prev = null; sorted.forEach((t, j) => { if (t.score !== prev) { p = j + 1; prev = t.score; } t.place = p; });
+  const order = sorted.length === 2 ? [1, 0] : sorted.length === 3 ? [1, 0, 2] : [1, 0, 2, 3];
+  const [cur, setCur] = useState(0);
+  useEffect(() => { Snd.fanfare(); fire(220); const a = setTimeout(() => fire(160), 1300), b = setTimeout(() => fire(160), 2800); return () => { clearTimeout(a); clearTimeout(b); }; }, []);
+  const hgt = { 1: 100, 2: 74, 3: 54, 4: 38 };
+  const champs = sorted.filter((t) => t.place === 1);
+  return D('finish',
+    D('hero small', D('kings', '🏆'), h('h1', null, champs.length > 1 ? 'Ничья чемпионов!' : 'Чемпионы экспедиции!'), D('sub', champs.map((t) => t.emoji + ' ' + t.name).join(' и '))),
+    D('podium', order.map((j) => { const t = sorted[j]; return D('pcol', { key: t.k }, D('pteam', T('em', t.emoji), D('pn', t.name), D('ps', t.score + ' очков')),
+      D('pstep p' + Math.min(t.place, 4), { style: { height: hgt[Math.min(t.place, 4)] + '%', '--tc': t.color } }, T('pmed', ['🥇', '🥈', '🥉', '🏅'][Math.min(t.place, 4) - 1]), T('pp', t.place))); })),
+    D('certs', D('lbl big', 'Сертификаты команд'),
+      D('ctabs', sorted.map((t, j) => Btn('ctab' + (cur === j ? ' on' : ''), () => setCur(j), t.emoji + ' ' + t.name))),
+      h(Cert, { team: sorted[cur], place: sorted[cur].place, n: sorted.length })),
+    D('act center', Btn('go alt', onBack, 'Вернуться к карте'), Btn('go', onAgain, 'Новый турнир ', h(Icon, { n: 'rocket' }))));
+}
+
+/* ---- панель тренера ---- */
+function Coach({ open, setOpen, coach, onFinish, onNext }) {
+  const [ask, setAsk] = useState(false);
+  const call = (k) => () => { Snd.click(); const f = coach.current && coach.current[k]; if (f) f(); };
+  return D('coach' + (open ? ' open' : ''),
+    open ? D('cpanel', D('ctitle', '🎓 Панель тренера'),
+      Btn('cb hint', call('hint'), h(Icon, { n: 'bulb' }), ' Подсказка'),
+      Btn('cb', call('answer'), h(Icon, { n: 'eye' }), ' Показать ответ'),
+      Btn('cb', call('skip'), h(Icon, { n: 'skip' }), ' Пропустить задание'),
+      Btn('cb', onNext, h(Icon, { n: 'next' }), ' Следующая станция'),
+      ask ? D('askrow', D('', 'Завершить турнир и перейти к награждению?'), D('askb', Btn('cb warn', () => { setAsk(false); onFinish(); }, 'Да, награждаем'), Btn('cb', () => setAsk(false), 'Отмена')))
+        : Btn('cb', () => setAsk(true), h(Icon, { n: 'flag' }), ' Завершить турнир')) : null,
+    Btn('cfab', () => setOpen(!open), h(Icon, { n: open ? 'x' : 'cap', s: 26 })));
+}
+
+function App() {
+  const [phase, setPhase] = useState('setup');
+  const [teams, setTeams] = useState([]), [active, setActive] = useState(0), [st, setSt] = useState(0);
+  const [prog, setProg] = useState([0, 0, 0, 0, 0, 0]), [stSecs, setStSecs] = useState([0, 0, 0, 0, 0, 0]);
+  const [secs, setSecs] = useState(7200), [running, setRunning] = useState(true), [mute, setMute] = useState(false), [open, setOpen] = useState(false), [timeUp, setTimeUp] = useState(false);
+  const coach = useRef({}), stRef = useRef(0); stRef.current = st;
+  const pairs = useMemo(() => { const n = teams.length; return n === 2 ? [[0, 1], [1, 0], [0, 1]] : n === 3 ? [[0, 1], [1, 2], [2, 0]] : [[0, 1], [2, 3], [0, 2], [1, 3]]; }, [teams.length]);
+  const counts = [COORD_TASKS.length, HUNT_TASKS.length, pairs.length, KING_TASKS.length, TRAP_TASKS.length, MATE_TASKS.length];
+
+  useEffect(() => {
+    if (phase !== 'play' || !running) return undefined;
+    const id = setInterval(() => { setSecs((s) => Math.max(0, s - 1)); setStSecs((a) => a.map((v, k) => (k === stRef.current ? v + 1 : v))); }, 1000);
+    return () => clearInterval(id);
+  }, [phase, running]);
+  useEffect(() => { if (phase === 'play' && secs === 0 && !timeUp) { setTimeUp(true); Snd.alarm(); } }, [secs, phase]);
+  useEffect(() => { Snd.muted = mute; }, [mute]);
+
+  const award = (k, pts) => setTeams((ts) => ts.map((t, j) => (j === k ? { ...t, score: Math.max(0, t.score + pts) } : t)));
+  const advance = () => { setProg((p) => p.map((v, k) => (k === st ? v + 1 : v))); setActive((a) => (a + 1) % teams.length); coach.current = {}; };
+  const start = (ts) => { setTeams(ts); setActive(0); setSt(0); setProg([0, 0, 0, 0, 0, 0]); setStSecs([0, 0, 0, 0, 0, 0]); setSecs(7200); setRunning(true); setTimeUp(false); setPhase('play'); };
+  const goSt = (k) => { coach.current = {}; setSt(k); };
+  const next = () => { if (st >= 5) setPhase('finish'); else goSt(st + 1); };
+  const ctx = { teams, active, setActive, award, advance, coach, pairs };
+
+  if (phase === 'setup') return h(Setup, { onStart: start });
+  if (phase === 'finish') return h(Finish, { teams, onAgain: () => { setPhase('setup'); }, onBack: () => setPhase('play') });
+
+  const Comp = [S1, S2, S3, S4, S5, S6][st], i = prog[st], total = counts[st], finished = i >= total;
+  if (finished) coach.current = {};
+  const low = secs <= 600;
+  return D('app',
+    D('top',
+      D('brand', T('bk', '♞'), D('bt', D('b1', 'Шахматная экспедиция'), D('b2', 'Командный турнир'))),
+      D('clock' + (low ? ' low' : '') + (!running ? ' paused' : ''), T('ctime', fmt(secs)), D('cbtns',
+        Btn('ib', () => setRunning(!running), h(Icon, { n: running ? 'pause' : 'play' }), T('', running ? 'Пауза' : 'Пуск')),
+        Btn('ib', () => { setSecs((s) => s + 300); setTimeUp(false); }, h(Icon, { n: 'plus' }), T('', '5 мин')),
+        Btn('ib', () => { setSecs(7200); setRunning(false); setTimeUp(false); }, h(Icon, { n: 'reset' }), T('', 'Сброс')))),
+      Btn('ib sound', () => { Snd.init(); setMute(!mute); }, h(Icon, { n: mute ? 'mute' : 'vol' }))),
+    timeUp && secs === 0 ? D('timeup', '⏰ Время урока вышло! Можно добавить 5 минут или перейти к награждению.', Btn('ib', () => setPhase('finish'), 'К награждению')) : null,
+    h(Teams, { teams, active, setActive, award }),
+    h(MapBar, { st, setSt: goSt, prog, counts, stSecs }),
+    finished ? D('stage-wrap', D('stbar', T('stico', STATIONS[st].icon), D('stt', D('stn', 'Станция ' + (st + 1) + ' · ' + STATIONS[st].name), D('stb', STATIONS[st].blurb))),
+      h(StationDone, { st, teams, onNext: next, onRepeat: () => setProg((p) => p.map((v, k) => (k === st ? 0 : v))) }))
+      : h(Comp, { key: st + '-' + i, ctx, idx: st, i, total }),
+    h(Coach, { open, setOpen, coach, onFinish: () => setPhase('finish'), onNext: next }));
+}
+
+function Root() { return h(React.Fragment, null, h(App), h(Confetti)); }
+ReactDOM.createRoot(document.getElementById('root')).render(h(Root));
+
+</script>
+</body></html>
